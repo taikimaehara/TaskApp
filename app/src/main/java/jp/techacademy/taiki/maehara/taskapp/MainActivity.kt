@@ -9,6 +9,7 @@ import com.google.android.material.snackbar.Snackbar
 import androidx.appcompat.app.AppCompatActivity
 import io.realm.Realm
 import io.realm.RealmChangeListener
+import io.realm.RealmConfiguration
 import io.realm.Sort
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
@@ -34,9 +35,19 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+        //マイグレーションが必要だったら、初期化する
+        val realmConfig = RealmConfiguration.Builder().deleteRealmIfMigrationNeeded().build()
+        Realm.setDefaultConfiguration(realmConfig)
+
         // Realmの設定
         mRealm = Realm.getDefaultInstance()
         mRealm.addChangeListener(mRealmListener)
+
+        //category_search_buttomタップ時の処理
+        category_search_button.setOnClickListener {
+            serchCategoryListView()
+        }
+
 
         // ListViewの設定
         mTaskAdapter = TaskAdapter(this)
@@ -95,6 +106,25 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    private fun serchCategoryListView() {
+        // Realmデータベースから、「入力された文言に部分一致するカテゴリを含んだデータを取得して新しい日時順に並べた結果」を取得
+        val taskRealmResults =
+            mRealm.where(Task::class.java)
+                .contains("category", category_search_edit_text.text.toString()).findAll()
+                .sort("date", Sort.DESCENDING)
+
+        // 上記の結果を、TaskListとしてセットする
+        mTaskAdapter.mTaskList = mRealm.copyFromRealm(taskRealmResults)
+
+        // TaskのListView用のアダプタに渡す
+        listView1.adapter = mTaskAdapter
+
+        // 表示を更新するために、アダプターにデータが変更されたことを知らせる
+        mTaskAdapter.notifyDataSetChanged()
+
+
+    }
+
     override fun onDestroy() {
         super.onDestroy()
 
@@ -102,7 +132,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun reloadListView() {
-        // Realmデータベースから、「全てのデータを取得して新しい日時中に並べた結果」を取得
+        // Realmデータベースから、「全てのデータを取得して新しい日時順に並べた結果」を取得
         val taskRealmResults =
             mRealm.where(Task::class.java).findAll().sort("date", Sort.DESCENDING)
 
